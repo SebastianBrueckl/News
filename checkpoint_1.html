@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aktuelle Nachrichten</title>
+<style>
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Inter', 'Helvetica Neue', Arial, sans-serif;
+  background: linear-gradient(135deg, #f0f4f8, #dfe7ef);
+  overflow: hidden;
+}
+
+nav {
+  position: fixed;
+  top: 0;
+  width: 100%;
+  background-color: #0f172a;
+  color: white;
+  text-align: center;
+  padding: 18px 0;
+  font-size: 1.6rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  z-index: 100;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+}
+
+.news-container {
+  display: flex;
+  flex-direction: row;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  height: 100vh;
+  scroll-behavior: smooth;
+  background: transparent;
+  align-items: flex-end;
+  justify-content: flex-start;
+  padding-left: 15%;
+  padding-bottom: 12vh;
+}
+
+.news-card {
+  flex: 0 0 70%;
+  scroll-snap-align: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  padding: 50px 40px 40px 40px;
+  background: white;
+  border-radius: 25px;
+  box-shadow: 0 6px 25px rgba(0,0,0,0.15);
+  border: 2px solid #e2e8f0;
+  text-align: center;
+  transition: transform 0.5s ease, box-shadow 0.3s ease;
+  position: relative;
+  margin: 0 15%;
+  height: 88%;
+  cursor: pointer;
+}
+
+.news-card:hover {
+  transform: scale(0.95);
+  box-shadow: 0 10px 35px rgba(0,0,0,0.25);
+}
+
+.news-card h1 {
+  font-size: 2.2rem;
+  margin-top: 1rem;
+  margin-bottom: 1rem;
+  color: #1e293b;
+}
+
+.news-card p {
+  font-size: 1.15rem;
+  color: #475569;
+  max-width: 700px;
+  line-height: 1.6;
+}
+
+.date {
+  position: absolute;
+  bottom: 20px;
+  right: 30px;
+  font-size: 0.9rem;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.nav-buttons-container {
+  position: fixed;
+  bottom: 5vh;
+  display: flex;
+  background-color: white;
+  border-radius: 50px;
+  padding: 4px 8px;
+  gap: 15px;
+  justify-content: center;
+  align-items: center;
+  z-index: 100;
+  left: 50%;
+  transform: translateX(-50%);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.nav-buttons-container button {
+  background-color: #0f172a;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 55px;
+  height: 55px;
+  font-size: 1.8rem;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.nav-buttons-container button:hover {
+  transform: scale(1.15);
+}
+
+.article-popup {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(15, 23, 42, 0.95);
+  color: white;
+  justify-content: flex-start;
+  align-items: center;
+  flex-direction: column;
+  text-align: left;
+  padding: 12vh 10% 10vh 10%;
+  z-index: 200;
+  opacity: 0;
+  transform: translateY(50px);
+  transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.article-popup.show {
+  display: flex;
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.article-popup h1 {
+  font-size: 2.2rem;
+  margin-top: 1rem;
+  margin-bottom: 1.5rem;
+  text-align: left;
+  width: 100%;
+  line-height: 1.2;
+}
+
+.article-popup p {
+  font-size: 1.2rem;
+  max-width: 600px;
+  line-height: 1.6;
+  text-align: left;
+}
+
+.close-btn {
+  position: absolute;
+  top: 30px;
+  right: 40px;
+  background: #e11d48;
+  color: white;
+  border: none;
+  padding: 10px 15px;
+  font-size: 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.close-btn:hover {
+  background-color: #be123c;
+}
+</style>
+</head>
+<body>
+<nav>Aktuelle Nachrichten</nav>
+
+<div class="news-container" id="newsContainer"></div>
+
+<div class="nav-buttons-container">
+  <button id="leftBtn">⟵</button>
+  <button id="rightBtn">⟶</button>
+</div>
+
+<div class="article-popup" id="articlePopup">
+  <button class="close-btn" id="closePopup">Schließen</button>
+  <h1 id="popupTitle"></h1>
+  <p id="content">Hier erscheint der vollständige Artikeltext.</p>
+</div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js";
+import { getFirestore, collection, getDocs, query, orderBy } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyAkWX5_Ed9waGec-ZFVxxPcUP8V8d1hgLQ",
+            authDomain: "news-159e0.firebaseapp.com",
+            databaseURL: "https://news-159e0-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "news-159e0",
+            storageBucket: "news-159e0.firebasestorage.app",
+            messagingSenderId: "894276829681",
+            appId: "1:894276829681:web:1dee0ad06a7ac6d0704450",
+            measurementId: "G-453M3GRTSV"
+};
+
+
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+const container = document.getElementById('newsContainer');
+const leftBtn = document.getElementById('leftBtn');
+const rightBtn = document.getElementById('rightBtn');
+const popup = document.getElementById('articlePopup');
+const popupTitle = document.getElementById('popupTitle');
+const content = document.getElementById('content'); // vorher popupText
+const closePopup = document.getElementById('closePopup');
+
+async function loadArticles() {
+  container.innerHTML = ""; // vorher leeren
+  const q = query(collection(db, "articles"), orderBy("date", "desc"));
+  const querySnapshot = await getDocs(q);
+
+  querySnapshot.forEach(doc => {
+    const data = doc.data();
+    const card = document.createElement('section');
+    card.classList.add('news-card');
+    card.setAttribute('data-fulltext', data.fullText);
+
+    let dateObj;
+if (data.date && data.date.seconds !== undefined) {
+  // Firestore Timestamp
+  dateObj = new Date(data.date.seconds * 1000);
+} else if (data.date) {
+  // Date oder String
+  dateObj = new Date(data.date);
+} else {
+  dateObj = new Date(); // Fallback: aktuelles Datum
+}
+
+const formattedDate = dateObj.toLocaleDateString('de-DE');
+
+card.innerHTML = `
+  <h1>${data.title}</h1>
+  <p>${data.summary}</p>
+  <span class="date">📅 ${formattedDate}</span>
+`;
+
+
+    card.addEventListener('click', () => {
+      popup.style.display = 'flex';
+      popup.classList.add('show');
+      popupTitle.textContent = data.title;
+      content.textContent = data.content;
+    });
+
+    container.appendChild(card);
+  });
+}
+
+// Scroll-Funktionen
+function scrollLeft() { container.scrollBy({ left: -window.innerWidth*0.7, behavior:'smooth'}); }
+function scrollRight(){ container.scrollBy({ left: window.innerWidth*0.7, behavior:'smooth'}); }
+
+leftBtn.addEventListener('click', scrollLeft);
+rightBtn.addEventListener('click', scrollRight);
+document.addEventListener('keydown', e => { if(e.key==='ArrowLeft') scrollLeft(); if(e.key==='ArrowRight') scrollRight(); });
+
+closePopup.addEventListener('click', () => { popup.classList.remove('show'); setTimeout(()=>popup.style.display='none',500); });
+
+// Initiales Laden
+loadArticles();
+
+// Automatisches Refresh der Artikel alle 30 Sekunden
+setInterval(() => {
+  loadArticles();
+}, 30000);
+
+</script>
+</body>
+</html>
