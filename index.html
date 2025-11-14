@@ -35,11 +35,15 @@
   </div>
 </main>
 
+<!-- 🔹 ARTIKEL-POPUP -->
 <div class="article-popup" id="articlePopup">
-  <img src="close.png" alt="Schließen" class="close-btn" id="closePopup">
-  <h1 id="popupTitle"></h1>
-  <p id="content">Hier erscheint der vollständige Artikeltext.</p>
+  <div class="popup-content">
+    <img src="images/close.png" alt="Schließen" class="close-btn" id="closePopup">
+    <h1 id="popupTitle"></h1>
+    <p id="content">Hier erscheint der vollständige Artikeltext.</p>
+  </div>
 </div>
+
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.5.0/firebase-app.js";
@@ -70,6 +74,14 @@
   const hamburger = document.getElementById('hamburger');
   const dropdown = document.getElementById('dropdownMenu');
   const overlay = document.getElementById('overlay');
+
+  const labelColors = {
+    "Politik": "#1e40af",
+    "Chronik": "#9a3412",
+    "Wirtschaft": "#0f766e",
+    "Sport": "#15803d"
+  };
+
 
   // 📰 Artikel laden
   async function loadArticles(filterLabel = null) {
@@ -104,6 +116,19 @@
         <span class="label">${data.label}</span>
         <span class="date">${formattedDate}</span>
       `;
+      // Farbverlauf je nach Label
+
+      // Rahmenfarbe basierend auf Label
+    const clr = labelColors[data.label] || "#334155";
+
+    // Glow / Border-Gradient
+    card.style.boxShadow = `
+      0 0 0 6px rgba(255,255,255,0.8),
+      0 0 25px ${clr},
+      0 0 50px ${clr}90
+`;
+
+
 
       card.addEventListener('click', () => {
         popup.style.display = 'flex';
@@ -166,6 +191,16 @@
     popup.classList.remove('show');
     setTimeout(() => popup.style.display = 'none', 500);
   });
+
+// Popup schließen beim Klicken auf den Hintergrund
+popup.addEventListener('click', (event) => {
+  // Nur schließen, wenn auf den Hintergrund geklickt wurde (nicht auf den Inhalt)
+  if (event.target === popup) {
+    popup.classList.remove('show');
+    setTimeout(() => popup.style.display = 'none', 500);
+  }
+});
+
 
   // 🍔 Hamburger Menü (Dropdown)
   hamburger.addEventListener('click', () => {

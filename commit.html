@@ -1,45 +1,121 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-    <meta charset="UTF-8">
-    <title>Artikel Hochladen</title>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
-    <link rel="stylesheet" href="commit.css">
+  <meta charset="UTF-8">
+  <title>Artikel Hochladen</title>
+
+  <!-- Firebase -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+
+  <link rel="stylesheet" href="style.css">
+
+  <style>
+    /* --- Formularstil --- */
+    body {
+      overflow: auto; /* Formular sichtbar halten */
+      padding: 100px 10%;
+    }
+
+    form {
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+      padding: 30px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      max-width: 600px;
+      margin: 0 auto 50px auto;
+    }
+
+    label {
+      display: flex;
+      flex-direction: column;
+      font-weight: 600;
+      color: var(--textColor);
+    }
+
+    input, textarea, select {
+      border: 1px solid #ccc;
+      border-radius: 10px;
+      padding: 10px;
+      font-size: 1rem;
+      font-family: inherit;
+    }
+
+    button[type="submit"] {
+      background-color: var(--objectColor);
+      transition: transform 0.2s ease;
+    }
+
+    button[type="submit"]:hover {
+      transform: scale(1.05);
+    }
+
+    #message {
+      text-align: center;
+      margin-top: 10px;
+      font-weight: bold;
+    }
+
+    /* Vorschau-Layout */
+    .preview-section {
+      text-align: center;
+      margin-top: 60px;
+    }
+
+    .preview-section h2 {
+      color: var(--textColor);
+      margin-bottom: 20px;
+      font-size: 1.8rem;
+    }
+
+    .news-container {
+      justify-content: center;
+      align-items: flex-end;
+      padding-bottom: 10vh;
+    }
+  </style>
 </head>
+
 <body>
-    <h1>Artikel Hochladen</h1>
-    <form id="articleForm" autocomplete="off">
-        <label>
-            Überschrift:
-            <input type="text" id="title" required>
-        </label>
-        <label>
-            Zusammenfassung:
-            <textarea id="summary" rows="3" required></textarea>
-        </label>
-        <label>
-            Text:
-            <textarea id="content" rows="8" required></textarea>
-        </label>
-        <label>
-            Label:
-            <select name="label" id="label">
-                <option value="Politik">Politik</option>
-                <option value="Chronik">Chronik</option>
-                <option value="Wirtschaft">Politik</option>
-                <option value="Sport">Sport</option>
-            </label>
-        <label>
-            Datum:
-            <input type="datetime-local" id="formattedDate" required>
-        </label>
-        <button type="submit">Hochladen</button>
-    </form>
-    <div id="message"></div>
-    <script>
-        
-        // Firebase-Konfiguration (ersetzen durch eigene Konfiguration)
+  <h1 style="text-align:center; color:var(--textColor); margin-bottom:20px;">Artikel Hochladen</h1>
+
+  <!-- Formular -->
+  <form id="articleForm" autocomplete="off">
+    <label>Überschrift:<input type="text" id="title" required></label>
+    <label>Zusammenfassung:<textarea id="summary" rows="3" required></textarea></label>
+    <label>Text:<textarea id="content" rows="8" required></textarea></label>
+    <label>Label:
+      <select id="label">
+        <option value="Politik">Politik</option>
+        <option value="Chronik">Chronik</option>
+        <option value="Wirtschaft">Wirtschaft</option>
+        <option value="Sport">Sport</option>
+      </select>
+    </label>
+    <label>Datum:<input type="datetime-local" id="formattedDate" required></label>
+    <button style="color: white; height: 2pc;" type="submit">Hochladen</button>
+  </form>
+
+  <div id="message"></div>
+
+  <!-- Vorschau -->
+  <section class="preview-section">
+    <h2>Live-Vorschau</h2>
+    <div class="news-container" id="previewContainer"></div>
+  </section>
+
+  <!-- Popup -->
+  <div class="article-popup" id="articlePopup">
+    <button class="close-btn" id="closePopup">✖</button>
+    <h1 id="popupTitle"></h1>
+    <p id="popupText"></p>
+  </div>
+
+  <script>
+
         const firebaseConfig = {
             apiKey: "AIzaSyAkWX5_Ed9waGec-ZFVxxPcUP8V8d1hgLQ",
             authDomain: "news-159e0.firebaseapp.com",
@@ -51,56 +127,109 @@
             measurementId: "G-453M3GRTSV"
 };
 
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
+    let db = null;
+    try {
+      if (firebaseConfig.apiKey) {
+        firebase.initializeApp(firebaseConfig);
+        db = firebase.firestore();
+        console.log("✅ Firebase initialisiert");
+      } else {
+        console.log("⚠️ Kein Firebase-Key – Vorschau läuft offline.");
+      }
+    } catch (err) {
+      console.warn("⚠️ Firebase konnte nicht geladen werden:", err);
+    }
 
-// Datum + Uhrzeit automatisch setzen
-const now = new Date();
-const pad = n => n.toString().padStart(2, '0');
-const datetimeLocal = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
-document.getElementById('formattedDate').value = datetimeLocal;
+    // Datum automatisch setzen
+    function setCurrentDateTime() {
+      const now = new Date();
+      const pad = n => n.toString().padStart(2, '0');
+      document.getElementById('formattedDate').value =
+        `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    }
+    setCurrentDateTime();
 
-function showMessage(msg, type) {
-    const el = document.getElementById('message');
-    el.textContent = msg;
-    el.className = type;
-    el.style.display = 'block';
+    function showMessage(msg, type) {
+      const el = document.getElementById('message');
+      el.textContent = msg;
+      el.style.color = type === "error" ? "red" : "green";
+    }
+
+    // Live-Vorschau aktualisieren
+function updatePreview() {
+  const title = document.getElementById('title').value.trim() || "Beispielartikel";
+  const summary = document.getElementById('summary').value.trim() || "Hier steht die Zusammenfassung.";
+  const content = document.getElementById('content').value.trim() || "Hier erscheint der vollständige Artikeltext.";
+  const label = document.getElementById('label').value;
+  const dateValue = document.getElementById('formattedDate').value;
+  const date = dateValue ? new Date(dateValue).toLocaleDateString('de-DE') : "Datum";
+
+  const container = document.getElementById('previewContainer');
+
+  // Zeilenumbrüche im Inhalt sichtbar machen
+  const formattedContent = content.replace(/\n/g, "<br>");
+  const formattedSummary = summary.replace(/\n/g, "<br>");
+
+  container.innerHTML = `
+    <div class="news-card" id="previewCard">
+      <h1>${title}</h1>
+      <p>${formattedSummary}</p>
+      <span class="label">${label}</span>
+      <span class="date">${date}</span>
+    </div>
+  `;
+
+  // Popup öffnen
+  document.getElementById('previewCard').addEventListener('click', () => {
+    const popup = document.getElementById('articlePopup');
+    popup.classList.add('show');
+    document.getElementById('popupTitle').textContent = title;
+    document.getElementById('popupText').innerHTML = formattedContent;
+  });
 }
 
-document.getElementById('articleForm').addEventListener('submit', async function(e) {
-    e.preventDefault();
-    const title = document.getElementById('title').value.trim();
-    const summary = document.getElementById('summary').value.trim();
-    const content = document.getElementById('content').value.trim();
-    const formattedDate = document.getElementById('formattedDate').value;
-    const label = document.getElementById('label').value;
 
-    // In echtes Date-Objekt umwandeln
-    const date = new Date(formattedDate);
+    // Popup schließen
+    document.getElementById('closePopup').addEventListener('click', () => {
+      document.getElementById('articlePopup').classList.remove('show');
+    });
 
-    showMessage("Speichern...", "");
+    // Live-Update aktivieren
+    ['title', 'summary', 'content', 'label', 'formattedDate']
+      .forEach(id => document.getElementById(id).addEventListener('input', updatePreview));
 
-    try {
+    updatePreview();
+
+    // Upload
+    document.getElementById('articleForm').addEventListener('submit', async e => {
+      e.preventDefault();
+      if (!db) return showMessage("⚠️ Firebase nicht aktiv – Vorschau funktioniert, Upload nicht.", "error");
+
+      const title = document.getElementById('title').value.trim();
+      const summary = document.getElementById('summary').value.trim();
+      const content = document.getElementById('content').value.trim();
+      const formattedDate = document.getElementById('formattedDate').value;
+      const label = document.getElementById('label').value;
+      const date = new Date(formattedDate);
+
+      showMessage("Speichern...", "");
+
+      try {
         await db.collection('articles').add({
-            title,
-            summary,
-            content,
-            label,
-            date: firebase.firestore.Timestamp.fromDate(date) // <-- speichert als Firestore Timestamp
+          title,
+          summary,
+          fullText: content,
+          label,
+          date: firebase.firestore.Timestamp.fromDate(date)
         });
         showMessage("✅ Artikel erfolgreich hochgeladen!", "success");
         document.getElementById('articleForm').reset();
-
-        // Neuen Zeitstempel für das Feld setzen
-        const now = new Date();
-        const pad = n => n.toString().padStart(2, '0');
-        const datetimeLocal = `${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
-        document.getElementById('formattedDate').value = datetimeLocal;
-    } catch (err) {
+        setCurrentDateTime();
+        updatePreview();
+      } catch (err) {
         showMessage("❌ Fehler beim Hochladen: " + err.message, "error");
-    }
-});
-</script>
-
+      }
+    });
+  </script>
 </body>
 </html>
